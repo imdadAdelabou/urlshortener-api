@@ -51,7 +51,7 @@ app.post("/api/shorturl", (req, res, next) => {
             next();
         })
     } else {
-        return res.status(400).json({ error: 'invalid url' });
+        return res.status(200).json({ error: 'invalid url' });
     }
 }, async(req, res, next) => {
     let urlShorter = new Shorter({

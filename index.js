@@ -5,6 +5,7 @@ const dns = require("node:dns");
 const bodyParser = require("body-parser");
 const urlencoded = require('body-parser/lib/types/urlencoded');
 const { hostname } = require('os');
+const connectDb = require("./utils/connectDb.js");
 const app = express();
 
 // Basic Configuration
@@ -14,6 +15,12 @@ app.use(cors());
 
 app.use(bodyParser({ urlencoded: false }));
 app.use(bodyParser.json());
+connectDb().then(() => {
+    console.log("Server connected");
+}).catch((e) => {
+    console.log(e);
+})
+const Shorter = require("./models/shorter.js");
 
 app.use('/public', express.static(`${process.cwd()}/public`));
 
@@ -36,20 +43,37 @@ app.post("/api/shorturl", (req, res, next) => {
             getHostname = url.split("http://");
         }
         let right_url = getHostname[1].split('/')[0];
-        console.log(right_url);
         dns.lookup(right_url, (err, hostname) => {
-            console.log(url);
             if (err) {
                 console.log(err);
-                return res.status(400).json({ error: 'Invalid URL' });
+                return res.status(400).json({ error: 'invalid url' });
             }
             next();
         })
     } else {
-        return res.status(400).json({ error: 'Invalid URL' });
+        return res.status(400).json({ error: 'invalid url' });
     }
-}, (req, res, next) => {
-    return res.status(200).json({ body: "Everything work fine" });
+}, async(req, res, next) => {
+    let urlShorter = new Shorter({
+        original_url: req.body.url
+    });
+    let urlSave = await urlShorter.save();
+    let uniqueId = urlSave.id.substring((urlSave.id.length - 1) - 1);
+    urlSave.short_url = uniqueId;
+    await urlSave.save();
+    return res.status(200).json({ original_url: urlSave.original_url, short_url: urlSave.short_url });
+});
+
+app.use("/api/shorturl/:short_url", (req, res, next) => {
+    let url = req.params.short_url;
+    Shorter.findOne({ short_url: url }).then((value) => {
+        if (!value) {
+            return res.status(404).json({ error: "Not found" });
+        }
+        return res.redirect(value.original_url);
+    }).catch((err) => {
+        return res.status(500).json({ error: "Internal Server" });
+    });
 });
 
 app.listen(port, function() {

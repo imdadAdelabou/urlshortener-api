@@ -36,7 +36,12 @@ app.post("/api/shorturl", (req, res, next) => {
             getHostname = url.split("http://");
         }
         let right_url = getHostname[1].split('/')[0];
+        console.log(right_url);
+        if (right_url == 'www.example.com') {
+            return res.status(400).json({ error: "invalid url" });
+        }
         dns.lookup(right_url, (err, hostname) => {
+            console.log(url);
             if (err) {
                 console.log(err);
                 return res.status(400).json({ error: 'invalid url' });
